@@ -1,0 +1,22 @@
+# Static SPA served by nginx — no backend proxy. The CF → gate → nginx
+# chain accumulates X-Forwarded-*, Cookie, X-Coders-User headers, so the
+# default 8k buffers are bumped to avoid 400 "Header Too Large".
+client_header_buffer_size 16k;
+large_client_header_buffers 8 32k;
+
+server {
+  listen 80;
+  server_name _;
+
+  root /usr/share/nginx/html;
+  index index.html;
+
+  location /_next/static/ {
+    expires    30d;
+    add_header Cache-Control "public, immutable";
+  }
+
+  location / {
+    try_files $uri $uri.html $uri/index.html /index.html;
+  }
+}

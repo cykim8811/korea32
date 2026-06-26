@@ -1,0 +1,11 @@
+# coders.kr deploy manifest — frontend-only static calculator.
+# No backend or DB: all of the 32강 경우의 수 computation runs client-side.
+version: "1"
+mode: native
+
+services:
+  web:
+    dockerfile: frontend/Dockerfile
+    context: frontend
+    port: 80
+    expose: public
