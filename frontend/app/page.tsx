@@ -97,7 +97,7 @@ export default function Page() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-5 pb-20 pt-8 sm:pt-12">
+    <div className="relative z-10 mx-auto max-w-2xl px-5 pb-20 pt-8 sm:pt-12">
       {/* 헤더 */}
       <header className="mb-6">
         <div className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
@@ -466,11 +466,15 @@ function GateTimeline() {
 
               <div className="mt-2 space-y-1">
                 <div className="flex gap-1.5 text-[11px] leading-snug">
-                  <span className="mt-px font-semibold text-emerald-600">유리</span>
+                  <span className="mt-px shrink-0 whitespace-nowrap font-semibold text-emerald-600">
+                    유리
+                  </span>
                   <span className="text-foreground/75">{g.safe}</span>
                 </div>
                 <div className="flex gap-1.5 text-[11px] leading-snug">
-                  <span className="mt-px font-semibold text-red-500">위협</span>
+                  <span className="mt-px shrink-0 whitespace-nowrap font-semibold text-red-500">
+                    위협
+                  </span>
                   <span className="text-foreground/75">{g.threat}</span>
                 </div>
               </div>

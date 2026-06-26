@@ -146,3 +146,35 @@
     @apply font-mono;
   }
 }
+
+/* ── 축구 배경 애니메이션 (자체 제작, 저작권 없음) ───────────────────── */
+.pitch-base {
+  background:
+    radial-gradient(120% 85% at 50% -15%, rgba(255, 255, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, #0c4023 0%, #0a2f19 60%, #07210f 100%);
+}
+.pitch-stripes {
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05) 0 64px,
+    rgba(0, 0, 0, 0.06) 64px 128px
+  );
+  animation: pitchScroll 15s linear infinite;
+}
+.pitch-ball {
+  animation-name: ballRoll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+@keyframes pitchScroll {
+  from { background-position: 0 0; }
+  to { background-position: 0 128px; }
+}
+@keyframes ballRoll {
+  0% { transform: translateX(-12vw) rotate(0deg); }
+  100% { transform: translateX(112vw) rotate(1080deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pitch-stripes, .pitch-ball { animation: none; }
+}
