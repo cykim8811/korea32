@@ -172,6 +172,17 @@
   --ring: oklch(0.55 0 0);
 }
 
+/* 유리(글라스) 카드 — 배경 영상이 비쳐 보이도록 */
+.glass {
+  background: rgba(255, 255, 255, 0.055);
+  -webkit-backdrop-filter: blur(13px) saturate(120%);
+  backdrop-filter: blur(13px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 12px 36px -16px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
 .stadium-video {
   animation: stadiumZoom 22s ease-out both;
 }
