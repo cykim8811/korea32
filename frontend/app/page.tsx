@@ -48,48 +48,34 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
-// ── 결정 경기 6개 (킥오프 순서: 왼→오 = 먼저 끝남), 한국시간 근사 ──────
-type Pg = {
-  key: string;
-  no: string;
-  when: string;
-  match: string;
-  safe: string;
-  threat: string;
-  short: string; // 위협 한 줄 요약
-};
+// ── 결정 경기 6개 (킥오프 순서: 위→아래 = 먼저 끝남), 한국시간 근사 ──────
+// fav = 한국에 유리한(그 조 3위가 한국 아래) 결과. 스코어 완전탐색으로 검증.
+type Pg = { key: string; when: string; match: string; fav: string };
 const PG: Pg[] = [
-  { key: "I", no: "①", when: "토 04:00", match: "세네갈 vs 이라크", safe: "세네갈이 2골차+ 승 못 하면", threat: "세네갈 2골차 이상 승", short: "세네갈 2골차+승" },
-  { key: "H", no: "②", when: "토 09:00", match: "우루과이 vs 스페인", safe: "스페인 승", threat: "우루과이 무 또는 승", short: "우루과이 무·승" },
-  { key: "G", no: "③", when: "토 12:00", match: "이집트 vs 이란", safe: "이집트 승", threat: "이란 무 또는 승", short: "이란 무·승" },
-  { key: "L", no: "④", when: "일 06:00", match: "크로아티아 vs 가나", safe: "잉글랜드 승 & 가나 승", threat: "그 외 결과", short: "L조 이변" },
-  { key: "K", no: "⑤", when: "일 08:30", match: "콩고DR vs 우즈벡", safe: "콩고 무 또는 패", threat: "콩고 승", short: "콩고 승" },
-  { key: "J", no: "⑥", when: "일 11:00", match: "알제리 vs 오스트리아", safe: "오스트리아 승 / 알제리 2골차+승", threat: "무 또는 알제리 1골차 승", short: "알제리 1골차승·무" },
+  { key: "I", when: "토 04:00", match: "세네갈 vs 이라크", fav: "세네갈, 이라크에 2골차+ 승 실패" },
+  { key: "H", when: "토 09:00", match: "우루과이 vs 스페인", fav: "스페인 승" },
+  { key: "G", when: "토 12:00", match: "이집트 vs 이란", fav: "이집트 승" },
+  { key: "L", when: "일 06:00", match: "크로아티아 vs 가나", fav: "잉글랜드 승 + 가나 승" },
+  { key: "K", when: "일 08:30", match: "콩고DR vs 우즈벡", fav: "콩고DR, 우즈벡에 승리 실패" },
+  { key: "J", when: "일 11:00", match: "알제리 vs 오스트리아", fav: "오스트리아 승 / 알제리 2골차+ 승" },
 ];
 
-// 진출 시나리오 = 위협 ≤ 3 인 모든 조합. 한국 순위 = 5 + 위협수.
-// 킥오프 순서(I가 최상위 자릿값)로 정렬 → 왼쪽 경기부터 가지치기.
-type Scn = { id: number; rank: number; threats: number; outcome: ("safe" | "threat")[] };
-const SCENARIOS: Scn[] = (() => {
+// 확정 3위 4팀이 이미 한국 위 → 남은 6개 조 중 '한국 아래'가 3개면 무조건
+// 진출(나머지 무관). 그래서 시나리오 = 유리 조건 3개의 조합(최소 충족).
+// 킥오프상 가장 늦게 결정되는 경기 index로 정렬 → 위쪽일수록 빨리 결판.
+type MinScn = { id: string; idx: number[] };
+const MIN_SCENARIOS: MinScn[] = (() => {
   const n = PG.length;
-  const out: Scn[] = [];
-  for (let m = 0; m < 1 << n; m++) {
-    let t = 0;
-    const oc: ("safe" | "threat")[] = [];
-    for (let i = 0; i < n; i++) {
-      const th = ((m >> i) & 1) === 1;
-      oc.push(th ? "threat" : "safe");
-      if (th) t++;
-    }
-    if (t > 3) continue;
-    out.push({ id: m, rank: 5 + t, threats: t, outcome: oc });
-  }
+  const out: MinScn[] = [];
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      for (let k = j + 1; k < n; k++)
+        out.push({ id: `${i}-${j}-${k}`, idx: [i, j, k] });
   out.sort((a, b) => {
-    for (let i = 0; i < n; i++) {
-      const av = a.outcome[i] === "safe" ? 0 : 1;
-      const bv = b.outcome[i] === "safe" ? 0 : 1;
-      if (av !== bv) return av - bv;
-    }
+    const am = Math.max(...a.idx),
+      bm = Math.max(...b.idx);
+    if (am !== bm) return am - bm;
+    for (let p = 0; p < 3; p++) if (a.idx[p] !== b.idx[p]) return a.idx[p] - b.idx[p];
     return 0;
   });
   return out;
@@ -313,158 +299,118 @@ function Verdict({
 }
 
 // ── 진출 시나리오 보드 ─────────────────────────────────────────────────
+// 카드 = 유리 조건 3개의 묶음(이거 다 되면 무조건 진출). 조건을 누르면
+// 결과 표시: 한 번 = 달성(✓), 두 번 = 실패(✗). 실패가 끼면 카드는 흐려진다.
 function ScenarioBoard() {
-  const [res, setRes] = useState<Record<string, "safe" | "threat">>({});
-  const toggle = (k: string, v: "safe" | "threat") =>
+  const [res, setRes] = useState<Record<string, "ok" | "fail">>({});
+  const cycle = (k: string) =>
     setRes((p) => {
-      if (p[k] === v) {
-        const n = { ...p };
-        delete n[k];
-        return n;
-      }
-      return { ...p, [k]: v };
+      const cur = p[k];
+      const next = cur === undefined ? "ok" : cur === "ok" ? "fail" : undefined;
+      const n = { ...p };
+      if (next === undefined) delete n[k];
+      else n[k] = next;
+      return n;
     });
 
-  const threatsResolved = PG.filter((g) => res[g.key] === "threat").length;
-  const undecided = PG.filter((g) => !res[g.key]).length;
-  const clinchIn = threatsResolved + undecided <= 3;
-  const clinchOut = threatsResolved >= 4;
-
-  const survives = (s: Scn) =>
-    PG.every((g, i) => !res[g.key] || res[g.key] === s.outcome[i]);
-  const live = SCENARIOS.filter(survives);
-  const best = live.length ? Math.min(...live.map((s) => s.rank)) : null;
-  const worst = live.length ? Math.max(...live.map((s) => s.rank)) : null;
-  const resolved = PG.length - undecided;
+  const cards = MIN_SCENARIOS.map((s) => {
+    const groups = s.idx.map((i) => PG[i]);
+    const failed = groups.some((g) => res[g.key] === "fail");
+    const cleared = groups.every((g) => res[g.key] === "ok");
+    return { ...s, groups, failed, cleared };
+  });
+  const alive = cards.filter((c) => !c.failed).length;
+  const clinched = cards.some((c) => c.cleared);
+  const out = alive === 0;
 
   return (
     <section className="mt-6">
       <div className="mb-2 flex items-baseline justify-between gap-2">
         <span className="text-[13px] font-semibold">진출 시나리오</span>
         <span className="text-[11.5px] text-white/50">
-          왼쪽 경기부터 결정 · 깨진 경우는 사라짐
+          조건을 눌러 결과 표시 · 1번 달성 ✓ / 2번 실패 ✗
         </span>
       </div>
 
-      {/* 결정 경기 결과 입력 (킥오프 순서) */}
-      <div className="glass mb-3 rounded-xl p-1.5">
-        {PG.map((g) => (
+      {(clinched || out) && (
+        <div
+          className={`mb-3 rounded-xl border p-3 text-[13px] font-semibold backdrop-blur-md ${
+            out
+              ? "border-red-400/30 bg-red-500/15 text-red-200"
+              : "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
+          }`}
+        >
+          {out
+            ? "✕ 탈락 — 남은 진출 시나리오 없음"
+            : "✓ 32강 진출 확정 — 조건을 모두 충족한 시나리오 성립"}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {cards.map((c) => (
           <div
-            key={g.key}
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5"
+            key={c.id}
+            className={`glass rounded-xl p-3 transition-all ${
+              c.failed
+                ? "opacity-40 grayscale"
+                : c.cleared
+                  ? "ring-1 ring-emerald-400/50"
+                  : ""
+            }`}
           >
-            <span className="w-4 shrink-0 text-center text-[12px] font-bold text-white/55">
-              {g.no}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[12.5px] font-semibold">
-                {g.match}
-                <span className="ml-1.5 text-[10px] font-normal text-white/40">
-                  {g.when}
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[10.5px] font-bold uppercase tracking-wide text-white/45">
+                {c.failed ? "실패" : c.cleared ? "충족 → 진출" : "이 결과면 진출"}
+              </span>
+              {c.cleared && !c.failed && (
+                <span className="text-[11px] font-bold text-emerald-300">
+                  ✓ 진출
                 </span>
-              </div>
-              <div className="truncate text-[10.5px] text-white/55">
-                <span className="text-emerald-300">유리</span> {g.safe}
-                <span className="mx-1 text-white/25">·</span>
-                <span className="text-red-300">위협</span> {g.threat}
-              </div>
+              )}
             </div>
-            <div className="flex shrink-0 gap-1">
-              <SegBtn active={res[g.key] === "safe"} tone="safe" onClick={() => toggle(g.key, "safe")}>
-                유리
-              </SegBtn>
-              <SegBtn active={res[g.key] === "threat"} tone="threat" onClick={() => toggle(g.key, "threat")}>
-                위협
-              </SegBtn>
+            <div className="space-y-1">
+              {c.groups.map((g, i) => {
+                const st = res[g.key];
+                return (
+                  <button
+                    key={g.key}
+                    onClick={() => cycle(g.key)}
+                    className="flex w-full items-start gap-1.5 text-left"
+                  >
+                    <span className="mt-px w-7 shrink-0 text-[12px] font-semibold text-white/40">
+                      {i === 0 ? "" : "and"}
+                    </span>
+                    <span
+                      className={`flex-1 text-[13.5px] font-medium leading-snug ${
+                        st === "fail"
+                          ? "text-red-300 line-through"
+                          : st === "ok"
+                            ? "text-emerald-300"
+                            : "text-white/85"
+                      }`}
+                    >
+                      {g.fav}
+                    </span>
+                    <span
+                      className={`mt-px shrink-0 text-[12px] font-bold ${
+                        st === "fail"
+                          ? "text-red-400"
+                          : st === "ok"
+                            ? "text-emerald-400"
+                            : "text-white/25"
+                      }`}
+                    >
+                      {st === "fail" ? "✗" : st === "ok" ? "✓" : "·"}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
       </div>
 
-      {/* 현재 상태 */}
-      <div
-        className={`mb-3 rounded-xl border p-3 text-[13px] backdrop-blur-md ${
-          clinchOut || live.length === 0
-            ? "border-red-400/30 bg-red-500/15 text-red-200"
-            : clinchIn
-              ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-200"
-              : "border-white/12 bg-white/[0.05] text-white/80"
-        }`}
-      >
-        {clinchOut || live.length === 0 ? (
-          <span className="font-semibold">
-            ✕ 탈락 — 남은 진출 경우의 수 0
-          </span>
-        ) : clinchIn ? (
-          <span className="font-semibold">
-            ✓ 32강 진출 확정 — 한국 {best === worst ? `${best}위` : `${best}~${worst}위`}
-          </span>
-        ) : (
-          <>
-            가능한 진출 경우의 수 <b className="tabular-nums">{live.length}</b>개 ·
-            한국 <b>{best === worst ? `${best}위` : `${best}~${worst}위`}</b> ·{" "}
-            <span className="text-white/55">남은 경기 {undecided}개</span>
-          </>
-        )}
-      </div>
-
-      {/* 시나리오 카드 (왼→오: 킥오프 순서) */}
-      {live.length > 0 ? (
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-          {live.map((s) => {
-            const threatLabels = PG.filter(
-              (_, i) => s.outcome[i] === "threat",
-            ).map((g) => g.short);
-            return (
-              <div
-                key={s.id}
-                className="glass flex w-[156px] shrink-0 flex-col rounded-xl p-3"
-              >
-                <div className="flex items-baseline justify-between">
-                  <span className="text-[15px] font-bold tracking-tight text-emerald-300">
-                    한국 {s.rank}위
-                  </span>
-                  <span className="text-[10px] font-medium text-emerald-300/60">
-                    진출
-                  </span>
-                </div>
-                <div className="mt-1 min-h-[30px] text-[10.5px] leading-snug">
-                  {threatLabels.length ? (
-                    <span className="text-red-300">
-                      이변 허용: {threatLabels.join(" · ")}
-                    </span>
-                  ) : (
-                    <span className="text-emerald-300/85">
-                      전 경기 한국에 유리
-                    </span>
-                  )}
-                </div>
-                <div className="mt-2 grid grid-cols-6 gap-1">
-                  {s.outcome.map((o, i) => (
-                    <span
-                      key={i}
-                      title={`${PG[i].match} — ${o === "safe" ? "유리" : "위협"}`}
-                      className={`flex h-6 items-center justify-center rounded text-[9.5px] font-bold ${
-                        o === "safe"
-                          ? "bg-emerald-500/25 text-emerald-200"
-                          : "bg-red-500/35 text-red-100"
-                      }`}
-                    >
-                      {PG[i].key}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-red-400/20 bg-red-500/5 p-4 text-[13px] text-red-200">
-          입력한 결과로는 한국이 32강에 갈 경우의 수가 없다.
-        </div>
-      )}
-
-      {resolved > 0 && (
+      {Object.keys(res).length > 0 && (
         <button
           onClick={() => setRes({})}
           className="mt-2 text-[11.5px] text-white/50 underline-offset-2 hover:underline"
@@ -473,31 +419,6 @@ function ScenarioBoard() {
         </button>
       )}
     </section>
-  );
-}
-
-function SegBtn({
-  children,
-  active,
-  tone,
-  onClick,
-}: {
-  children: React.ReactNode;
-  active: boolean;
-  tone: "safe" | "threat";
-  onClick: () => void;
-}) {
-  const on =
-    tone === "safe" ? "bg-emerald-500 text-white" : "bg-red-500 text-white";
-  return (
-    <button
-      onClick={onClick}
-      className={`h-7 w-11 rounded-md text-[11px] font-semibold transition-colors ${
-        active ? on : "bg-white/10 text-white/55 hover:bg-white/20"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
