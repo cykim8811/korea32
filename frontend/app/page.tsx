@@ -124,8 +124,8 @@ export default function Page() {
         maxPendingAhead={maxPendingAhead}
       />
 
-      {/* 진출 확정 타임라인 */}
-      <ScenarioTimeline />
+      {/* 관문 타임라인 */}
+      <GateTimeline />
 
       {/* 시나리오 프리셋 */}
       <div className="mt-6 mb-3 flex items-center gap-2">
@@ -288,277 +288,254 @@ function Verdict({
   );
 }
 
-// ── 진출 확정 타임라인 ─────────────────────────────────────────────────
-// 한국은 더 뛸 경기가 없다. 진출은 남은 6개 조 3위 결과로만 갈린다.
-// 일정상 1일차(G·H·I) → 최종일(J·K·L). 각 윈도에서 "한국보다 위로 끝난
-// 3위 수"만이 변수. 확정 4팀(4점)이 이미 앞 → 잔여 누적 3팀까지는 진출,
-// 4팀째가 올라서는 순간 탈락. 왼쪽일수록 빨리 확정된다.
-type WVal = "?" | 0 | 1 | 2 | 3;
-
-type ScenarioCard = {
+// ── 관문 타임라인 ──────────────────────────────────────────────────────
+// 한국은 더 뛸 경기가 없다. 진출은 남은 6개 조 3위 결과로만 갈리고, 각 조는
+// 사실상 '결정 경기' 한 판으로 갈린다(모든 스코어 조합 완전탐색으로 검증).
+// 한국 위로 끝나는 조('위협')가 3개 이하 → 32강. 킥오프 순서대로 나열,
+// 왼쪽일수록 먼저 결정. 시각은 한국시간 근사치.
+type Gate = {
   key: string;
+  no: string;
   when: string;
-  title: string;
-  desc: string;
-  tone: "in" | "out";
-  k1?: number; // 1일차 한국 위 팀 수 (IN 카드)
-  k2max?: number; // 최종일 허용 상한 (IN 카드)
+  group: string;
+  match: string;
+  note: string;
+  safe: string;
+  threat: string;
 };
 
-const CARDS: ScenarioCard[] = [
+const GATES: Gate[] = [
   {
-    key: "A",
-    when: "1일차 즉시",
-    title: "⚡ 그날 바로 확정",
-    desc: "G·H·I조 3위가 모두 한국보다 아래로 끝남",
-    tone: "in",
-    k1: 0,
-    k2max: 99,
+    key: "I",
+    no: "①",
+    when: "토 04:00",
+    group: "I조",
+    match: "세네갈 vs 이라크",
+    note: "프랑스·노르웨이는 이미 1·2위. 이 한 경기가 3위를 결정.",
+    safe: "세네갈이 이라크에 2골차 이상 못 이기면 (1골차 승·무·패)",
+    threat: "세네갈이 이라크에 2골차 이상 승",
   },
   {
-    key: "B",
-    when: "최종일",
-    title: "여유 확정",
-    desc: "1일차 한국 위 1팀 → 최종일 한국 위 2팀 이하",
-    tone: "in",
-    k1: 1,
-    k2max: 2,
+    key: "H",
+    no: "②",
+    when: "토 09:00",
+    group: "H조",
+    match: "우루과이 vs 스페인",
+    note: "카보베르데–사우디 결과는 영향 없음.",
+    safe: "스페인이 우루과이를 이기면",
+    threat: "우루과이가 비기거나 이기면",
   },
   {
-    key: "C",
-    when: "최종일",
-    title: "빠듯한 확정",
-    desc: "1일차 한국 위 2팀 → 최종일 한국 위 1팀 이하",
-    tone: "in",
-    k1: 2,
-    k2max: 1,
+    key: "G",
+    no: "③",
+    when: "토 12:00",
+    group: "G조",
+    match: "이집트 vs 이란",
+    note: "뉴질랜드–벨기에 결과는 영향 없음.",
+    safe: "이집트가 이란을 이기면",
+    threat: "이란이 비기거나 이기면",
   },
   {
-    key: "D",
-    when: "최종일",
-    title: "진땀 확정",
-    desc: "1일차 한국 위 3팀(전부) → 최종일 한국 위 0팀",
-    tone: "in",
-    k1: 3,
-    k2max: 0,
+    key: "L",
+    no: "④",
+    when: "일 06:00",
+    group: "L조",
+    match: "크로아티아 vs 가나 (+파나마 vs 잉글랜드)",
+    note: "6개 조 중 위협 확률이 가장 높은 조.",
+    safe: "잉글랜드가 파나마에 이기고 + 가나가 크로아티아에 이기면",
+    threat: "그 외 대부분 (크로아티아·가나·잉글랜드 중 4점 3위 발생)",
   },
   {
-    key: "E",
-    when: "탈락 라인",
-    title: "✕ 탈락",
-    desc: "한국 위로 끝난 3위가 누적 4팀이 되는 순간",
-    tone: "out",
+    key: "K",
+    no: "⑤",
+    when: "일 08:30",
+    group: "K조",
+    match: "콩고DR vs 우즈베키스탄",
+    note: "콜롬비아·포르투갈은 콩고보다 위. 콩고만 변수.",
+    safe: "콩고DR가 우즈벡에 못 이기면 (무·패)",
+    threat: "콩고DR가 우즈벡을 이기면 (콩고 4점)",
+  },
+  {
+    key: "J",
+    no: "⑥",
+    when: "일 11:00",
+    group: "J조",
+    match: "알제리 vs 오스트리아",
+    note: "아르헨티나는 1위 확정.",
+    safe: "오스트리아 승 또는 알제리가 2골차 이상 승",
+    threat: "무승부 또는 알제리가 1골차 승",
   },
 ];
 
-function ScenarioTimeline() {
-  const [w1, setW1] = useState<WVal>("?");
-  const [w2, setW2] = useState<WVal>("?");
+type GState = "undecided" | "safe" | "threat";
 
-  const n1 = w1 === "?" ? null : w1;
-  const n2 = w2 === "?" ? null : w2;
+function GateTimeline() {
+  const [st, setSt] = useState<Record<string, GState>>({});
+  const get = (k: string): GState => st[k] ?? "undecided";
+  const set = (k: string, v: GState) =>
+    setSt((p) => ({ ...p, [k]: p[k] === v ? "undecided" : v }));
 
-  // 전체 상태
-  let state: "undecided" | "in" | "out" = "undecided";
-  if (n1 === 0) state = "in"; // 1일차 0팀 → 즉시 확정
-  else if (n1 !== null && n2 !== null) state = n1 + n2 <= 3 ? "in" : "out";
+  const threats = GATES.filter((g) => get(g.key) === "threat").length;
+  const undecided = GATES.filter((g) => get(g.key) === "undecided").length;
+  const allowance = 3 - threats; // 앞으로 더 허용되는 위협 수
 
-  // 카드별 상태 계산
-  type CardStat = "occurred" | "next" | "possible" | "pruned";
-  const maxTotal = (n1 ?? 3) + (n2 ?? 3);
+  let phase: "in" | "out" | "live" = "live";
+  if (threats >= 4) phase = "out";
+  else if (undecided <= allowance) phase = "in";
 
-  function evalCard(c: ScenarioCard): { possible: boolean; occurred: boolean } {
-    if (c.tone === "out") {
-      const occurred = n1 !== null && n2 !== null && n1 + n2 >= 4;
-      const possible = maxTotal >= 4; // 아직 탈락이 도달 가능한가
-      return { possible, occurred };
-    }
-    const k1 = c.k1!;
-    const k2max = c.k2max!;
-    const w1ok = n1 === null || n1 === k1;
-    const w2ok = n2 === null || n2 <= k2max;
-    const possible = w1ok && w2ok;
-    let occurred = false;
-    if (c.key === "A") occurred = n1 === 0;
-    else occurred = n1 === k1 && n2 !== null && n2 <= k2max;
-    return { possible, occurred };
-  }
-
-  // 가장 빠른(왼쪽) 아직 가능한 IN 카드 → 현재 노려야 할 경로
-  let nextKey: string | null = null;
-  if (state === "undecided") {
-    for (const c of CARDS) {
-      if (c.tone !== "in") continue;
-      const { possible, occurred } = evalCard(c);
-      if (possible && !occurred) {
-        nextKey = c.key;
-        break;
-      }
-    }
-  }
+  const nextKey =
+    phase === "live"
+      ? (GATES.find((g) => get(g.key) === "undecided")?.key ?? null)
+      : null;
+  const decided = phase !== "live";
 
   return (
     <section className="mt-6">
       <div className="mb-1 text-[13px] font-semibold">
-        진출 확정 타임라인
+        관문 타임라인 · 남은 6경기
       </div>
       <p className="mb-3 text-[12.5px] leading-relaxed text-muted-foreground">
-        한국은 더 뛸 경기가 없다. 남은 6개 조 3위 결과로만 갈린다 — 왼쪽일수록
-        빨리 확정, 오른쪽일수록 늦게/어렵게. 각 윈도 결과를 넣으면 불가능한
-        시나리오가 지워진다.
+        한국은 더 뛸 경기가 없다 — 진출은 아래 6경기 결과로만 갈린다. 각 조는
+        사실상 한 경기로 결정되고(완전탐색 검증), 한국 위로 끝나는 조가{" "}
+        <b className="text-foreground">3개 이하면 32강</b>. 왼쪽일수록 먼저 끝나는
+        경기다. 결과를 눌러 확정·탈락을 추적해 보자.
       </p>
 
-      {/* 결과 입력 */}
-      <div className="mb-3 space-y-2 rounded-xl border bg-secondary/30 p-3">
-        <SegRow
-          label="1일차 · G·H·I"
-          hint="한국보다 위로 끝난 3위"
-          value={w1}
-          onChange={setW1}
-        />
-        <SegRow
-          label="최종일 · J·K·L"
-          hint="한국보다 위로 끝난 3위"
-          value={w2}
-          onChange={setW2}
-        />
-        {(n1 !== null || n2 !== null) && (
-          <button
-            onClick={() => {
-              setW1("?");
-              setW2("?");
-            }}
-            className="text-[11.5px] text-muted-foreground underline-offset-2 hover:underline"
-          >
-            결과 초기화
-          </button>
+      {/* 현재 판정 */}
+      <div
+        className={`mb-3 rounded-xl border p-3 text-[13px] ${
+          phase === "in"
+            ? "border-emerald-500/30 bg-emerald-500/10"
+            : phase === "out"
+              ? "border-red-500/30 bg-red-500/10"
+              : "border-border bg-secondary/40"
+        }`}
+      >
+        {phase === "in" ? (
+          <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+            ✓ 32강 진출 확정 — 남은 경기 결과와 무관 (위협 {threats}개)
+          </span>
+        ) : phase === "out" ? (
+          <span className="font-semibold text-red-700 dark:text-red-400">
+            ✕ 탈락 — 한국 위로 끝난 조가 {threats}개 (4개부터 탈락)
+          </span>
+        ) : (
+          <span className="text-foreground/80">
+            현재 위협 <b>{threats}</b>개 · 미정 <b>{undecided}</b>관문. 남은
+            경기에서 위협이 <b>{allowance}</b>개 이하면 진출 —{" "}
+            <span className="text-muted-foreground">
+              다음 결정 경기: {GATES.find((g) => g.key === nextKey)?.match}
+            </span>
+          </span>
         )}
       </div>
 
-      {/* 현재 상태 한 줄 */}
-      <div
-        className={`mb-3 rounded-lg px-3 py-2 text-[12.5px] font-medium ${
-          state === "in"
-            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-            : state === "out"
-              ? "bg-red-500/10 text-red-700 dark:text-red-400"
-              : "bg-secondary text-muted-foreground"
-        }`}
-      >
-        {state === "in"
-          ? "✓ 32강 진출 확정 — 더 추월 불가"
-          : state === "out"
-            ? "✕ 탈락 확정 — 한국 위로 4팀"
-            : nextKey
-              ? `현재 가장 빠른 길: ${
-                  CARDS.find((c) => c.key === nextKey)!.when
-                } 확정 가능`
-              : "결과를 입력하면 가능한 시나리오만 남는다"}
-      </div>
-
-      {/* 카드 시퀀스 (왼→오: 빠름→늦음/탈락) */}
+      {/* 관문 카드 (왼→오: 킥오프 순서) */}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-        {CARDS.map((c) => {
-          const { possible, occurred } = evalCard(c);
-          let stat: CardStat = "possible";
-          if (occurred) stat = "occurred";
-          else if (!possible) stat = "pruned";
-          else if (c.key === nextKey) stat = "next";
-          return <TimelineCard key={c.key} c={c} stat={stat} />;
+        {GATES.map((g) => {
+          const s = get(g.key);
+          const isNext = g.key === nextKey;
+          const dim = decided && s === "undecided";
+          return (
+            <div
+              key={g.key}
+              className={`flex w-[212px] shrink-0 flex-col rounded-xl border p-3 transition-all ${
+                s === "safe"
+                  ? "border-emerald-500/40 bg-emerald-500/[0.06]"
+                  : s === "threat"
+                    ? "border-red-500/40 bg-red-500/[0.06]"
+                    : isNext
+                      ? "border-foreground/30 bg-card ring-1 ring-foreground/20"
+                      : "border-border bg-card"
+              } ${dim ? "opacity-40" : ""}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] font-bold">
+                  {g.no} {g.group}
+                </span>
+                <span className="text-[10.5px] font-medium text-muted-foreground">
+                  {g.when} · 한국시간
+                </span>
+              </div>
+              <div className="mt-0.5 text-[13.5px] font-semibold tracking-tight">
+                {g.match}
+              </div>
+              <div className="mt-1 text-[10.5px] leading-snug text-muted-foreground">
+                {g.note}
+              </div>
+
+              <div className="mt-2 space-y-1">
+                <div className="flex gap-1.5 text-[11px] leading-snug">
+                  <span className="mt-px font-semibold text-emerald-600">유리</span>
+                  <span className="text-foreground/75">{g.safe}</span>
+                </div>
+                <div className="flex gap-1.5 text-[11px] leading-snug">
+                  <span className="mt-px font-semibold text-red-500">위협</span>
+                  <span className="text-foreground/75">{g.threat}</span>
+                </div>
+              </div>
+
+              {/* 결과 입력 */}
+              <div className="mt-2.5 grid grid-cols-3 gap-1">
+                <GateBtn active={s === "safe"} tone="safe" onClick={() => set(g.key, "safe")}>
+                  🇰🇷 유리
+                </GateBtn>
+                <GateBtn active={s === "threat"} tone="threat" onClick={() => set(g.key, "threat")}>
+                  위협
+                </GateBtn>
+                <GateBtn active={s === "undecided"} tone="neutral" onClick={() => setSt((p) => ({ ...p, [g.key]: "undecided" }))}>
+                  미정
+                </GateBtn>
+              </div>
+
+              {dim && (
+                <div className="mt-2 text-[10.5px] font-semibold text-muted-foreground">
+                  {phase === "in" ? "이미 확정 · 무의미" : "이미 탈락 · 무의미"}
+                </div>
+              )}
+            </div>
+          );
         })}
       </div>
+
+      {(threats > 0 || undecided < 6) && (
+        <button
+          onClick={() => setSt({})}
+          className="mt-2 text-[11.5px] text-muted-foreground underline-offset-2 hover:underline"
+        >
+          결과 초기화
+        </button>
+      )}
     </section>
   );
 }
 
-function SegRow({
-  label,
-  hint,
-  value,
-  onChange,
+function GateBtn({
+  children,
+  active,
+  tone,
+  onClick,
 }: {
-  label: string;
-  hint: string;
-  value: WVal;
-  onChange: (v: WVal) => void;
+  children: React.ReactNode;
+  active: boolean;
+  tone: "safe" | "threat" | "neutral";
+  onClick: () => void;
 }) {
-  const opts: WVal[] = ["?", 0, 1, 2, 3];
+  const on =
+    tone === "safe"
+      ? "bg-emerald-500 text-white"
+      : tone === "threat"
+        ? "bg-red-500 text-white"
+        : "bg-primary text-primary-foreground";
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="text-[12px] font-semibold">{label}</span>
-      <span className="text-[11px] text-muted-foreground">{hint}</span>
-      <div className="ml-auto flex gap-1">
-        {opts.map((o) => (
-          <button
-            key={String(o)}
-            onClick={() => onChange(o)}
-            className={`h-6 min-w-7 rounded-md px-1.5 text-[12px] font-semibold tabular-nums transition-colors ${
-              value === o
-                ? "bg-primary text-primary-foreground"
-                : "bg-card text-muted-foreground hover:bg-accent"
-            }`}
-          >
-            {o === "?" ? "미정" : o}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function TimelineCard({
-  c,
-  stat,
-}: {
-  c: ScenarioCard;
-  stat: "occurred" | "next" | "possible" | "pruned";
-}) {
-  const isOut = c.tone === "out";
-  const base =
-    "shrink-0 w-[150px] rounded-xl border p-3 transition-all select-none";
-  const cls =
-    stat === "pruned"
-      ? "opacity-35 grayscale border-border bg-card"
-      : stat === "occurred"
-        ? isOut
-          ? "border-red-500/50 bg-red-500/10 ring-2 ring-red-500/30"
-          : "border-emerald-500/50 bg-emerald-500/10 ring-2 ring-emerald-500/30"
-        : stat === "next"
-          ? "border-emerald-500/40 bg-emerald-500/[0.06] ring-1 ring-emerald-500/30"
-          : isOut
-            ? "border-red-500/25 bg-red-500/[0.03]"
-            : "border-border bg-card";
-  return (
-    <div className={`${base} ${cls}`}>
-      <div
-        className={`text-[10.5px] font-bold uppercase tracking-wide ${
-          isOut ? "text-red-500" : "text-emerald-600"
-        }`}
-      >
-        {c.when}
-      </div>
-      <div className="mt-0.5 text-[14px] font-bold tracking-tight">
-        {c.title}
-      </div>
-      <div className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground">
-        {c.desc}
-      </div>
-      {stat === "occurred" && (
-        <div className="mt-2 text-[10.5px] font-semibold">
-          {isOut ? "현재 시나리오" : "확정"}
-        </div>
-      )}
-      {stat === "next" && (
-        <div className="mt-2 text-[10.5px] font-semibold text-emerald-600">
-          가장 빠른 길
-        </div>
-      )}
-      {stat === "pruned" && (
-        <div className="mt-2 text-[10.5px] font-semibold text-muted-foreground">
-          불가능
-        </div>
-      )}
-    </div>
+    <button
+      onClick={onClick}
+      className={`h-7 rounded-md text-[11px] font-semibold transition-colors ${
+        active ? on : "bg-secondary text-muted-foreground hover:bg-accent"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
