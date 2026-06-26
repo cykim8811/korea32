@@ -124,6 +124,9 @@ export default function Page() {
         maxPendingAhead={maxPendingAhead}
       />
 
+      {/* 진출 확정 타임라인 */}
+      <ScenarioTimeline />
+
       {/* 시나리오 프리셋 */}
       <div className="mt-6 mb-3 flex items-center gap-2">
         <span className="text-[13px] font-semibold text-muted-foreground">
@@ -281,6 +284,280 @@ function Verdict({
           </>
         )}
       </p>
+    </div>
+  );
+}
+
+// ── 진출 확정 타임라인 ─────────────────────────────────────────────────
+// 한국은 더 뛸 경기가 없다. 진출은 남은 6개 조 3위 결과로만 갈린다.
+// 일정상 1일차(G·H·I) → 최종일(J·K·L). 각 윈도에서 "한국보다 위로 끝난
+// 3위 수"만이 변수. 확정 4팀(4점)이 이미 앞 → 잔여 누적 3팀까지는 진출,
+// 4팀째가 올라서는 순간 탈락. 왼쪽일수록 빨리 확정된다.
+type WVal = "?" | 0 | 1 | 2 | 3;
+
+type ScenarioCard = {
+  key: string;
+  when: string;
+  title: string;
+  desc: string;
+  tone: "in" | "out";
+  k1?: number; // 1일차 한국 위 팀 수 (IN 카드)
+  k2max?: number; // 최종일 허용 상한 (IN 카드)
+};
+
+const CARDS: ScenarioCard[] = [
+  {
+    key: "A",
+    when: "1일차 즉시",
+    title: "⚡ 그날 바로 확정",
+    desc: "G·H·I조 3위가 모두 한국보다 아래로 끝남",
+    tone: "in",
+    k1: 0,
+    k2max: 99,
+  },
+  {
+    key: "B",
+    when: "최종일",
+    title: "여유 확정",
+    desc: "1일차 한국 위 1팀 → 최종일 한국 위 2팀 이하",
+    tone: "in",
+    k1: 1,
+    k2max: 2,
+  },
+  {
+    key: "C",
+    when: "최종일",
+    title: "빠듯한 확정",
+    desc: "1일차 한국 위 2팀 → 최종일 한국 위 1팀 이하",
+    tone: "in",
+    k1: 2,
+    k2max: 1,
+  },
+  {
+    key: "D",
+    when: "최종일",
+    title: "진땀 확정",
+    desc: "1일차 한국 위 3팀(전부) → 최종일 한국 위 0팀",
+    tone: "in",
+    k1: 3,
+    k2max: 0,
+  },
+  {
+    key: "E",
+    when: "탈락 라인",
+    title: "✕ 탈락",
+    desc: "한국 위로 끝난 3위가 누적 4팀이 되는 순간",
+    tone: "out",
+  },
+];
+
+function ScenarioTimeline() {
+  const [w1, setW1] = useState<WVal>("?");
+  const [w2, setW2] = useState<WVal>("?");
+
+  const n1 = w1 === "?" ? null : w1;
+  const n2 = w2 === "?" ? null : w2;
+
+  // 전체 상태
+  let state: "undecided" | "in" | "out" = "undecided";
+  if (n1 === 0) state = "in"; // 1일차 0팀 → 즉시 확정
+  else if (n1 !== null && n2 !== null) state = n1 + n2 <= 3 ? "in" : "out";
+
+  // 카드별 상태 계산
+  type CardStat = "occurred" | "next" | "possible" | "pruned";
+  const maxTotal = (n1 ?? 3) + (n2 ?? 3);
+
+  function evalCard(c: ScenarioCard): { possible: boolean; occurred: boolean } {
+    if (c.tone === "out") {
+      const occurred = n1 !== null && n2 !== null && n1 + n2 >= 4;
+      const possible = maxTotal >= 4; // 아직 탈락이 도달 가능한가
+      return { possible, occurred };
+    }
+    const k1 = c.k1!;
+    const k2max = c.k2max!;
+    const w1ok = n1 === null || n1 === k1;
+    const w2ok = n2 === null || n2 <= k2max;
+    const possible = w1ok && w2ok;
+    let occurred = false;
+    if (c.key === "A") occurred = n1 === 0;
+    else occurred = n1 === k1 && n2 !== null && n2 <= k2max;
+    return { possible, occurred };
+  }
+
+  // 가장 빠른(왼쪽) 아직 가능한 IN 카드 → 현재 노려야 할 경로
+  let nextKey: string | null = null;
+  if (state === "undecided") {
+    for (const c of CARDS) {
+      if (c.tone !== "in") continue;
+      const { possible, occurred } = evalCard(c);
+      if (possible && !occurred) {
+        nextKey = c.key;
+        break;
+      }
+    }
+  }
+
+  return (
+    <section className="mt-6">
+      <div className="mb-1 text-[13px] font-semibold">
+        진출 확정 타임라인
+      </div>
+      <p className="mb-3 text-[12.5px] leading-relaxed text-muted-foreground">
+        한국은 더 뛸 경기가 없다. 남은 6개 조 3위 결과로만 갈린다 — 왼쪽일수록
+        빨리 확정, 오른쪽일수록 늦게/어렵게. 각 윈도 결과를 넣으면 불가능한
+        시나리오가 지워진다.
+      </p>
+
+      {/* 결과 입력 */}
+      <div className="mb-3 space-y-2 rounded-xl border bg-secondary/30 p-3">
+        <SegRow
+          label="1일차 · G·H·I"
+          hint="한국보다 위로 끝난 3위"
+          value={w1}
+          onChange={setW1}
+        />
+        <SegRow
+          label="최종일 · J·K·L"
+          hint="한국보다 위로 끝난 3위"
+          value={w2}
+          onChange={setW2}
+        />
+        {(n1 !== null || n2 !== null) && (
+          <button
+            onClick={() => {
+              setW1("?");
+              setW2("?");
+            }}
+            className="text-[11.5px] text-muted-foreground underline-offset-2 hover:underline"
+          >
+            결과 초기화
+          </button>
+        )}
+      </div>
+
+      {/* 현재 상태 한 줄 */}
+      <div
+        className={`mb-3 rounded-lg px-3 py-2 text-[12.5px] font-medium ${
+          state === "in"
+            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            : state === "out"
+              ? "bg-red-500/10 text-red-700 dark:text-red-400"
+              : "bg-secondary text-muted-foreground"
+        }`}
+      >
+        {state === "in"
+          ? "✓ 32강 진출 확정 — 더 추월 불가"
+          : state === "out"
+            ? "✕ 탈락 확정 — 한국 위로 4팀"
+            : nextKey
+              ? `현재 가장 빠른 길: ${
+                  CARDS.find((c) => c.key === nextKey)!.when
+                } 확정 가능`
+              : "결과를 입력하면 가능한 시나리오만 남는다"}
+      </div>
+
+      {/* 카드 시퀀스 (왼→오: 빠름→늦음/탈락) */}
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        {CARDS.map((c) => {
+          const { possible, occurred } = evalCard(c);
+          let stat: CardStat = "possible";
+          if (occurred) stat = "occurred";
+          else if (!possible) stat = "pruned";
+          else if (c.key === nextKey) stat = "next";
+          return <TimelineCard key={c.key} c={c} stat={stat} />;
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SegRow({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: WVal;
+  onChange: (v: WVal) => void;
+}) {
+  const opts: WVal[] = ["?", 0, 1, 2, 3];
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="text-[12px] font-semibold">{label}</span>
+      <span className="text-[11px] text-muted-foreground">{hint}</span>
+      <div className="ml-auto flex gap-1">
+        {opts.map((o) => (
+          <button
+            key={String(o)}
+            onClick={() => onChange(o)}
+            className={`h-6 min-w-7 rounded-md px-1.5 text-[12px] font-semibold tabular-nums transition-colors ${
+              value === o
+                ? "bg-primary text-primary-foreground"
+                : "bg-card text-muted-foreground hover:bg-accent"
+            }`}
+          >
+            {o === "?" ? "미정" : o}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TimelineCard({
+  c,
+  stat,
+}: {
+  c: ScenarioCard;
+  stat: "occurred" | "next" | "possible" | "pruned";
+}) {
+  const isOut = c.tone === "out";
+  const base =
+    "shrink-0 w-[150px] rounded-xl border p-3 transition-all select-none";
+  const cls =
+    stat === "pruned"
+      ? "opacity-35 grayscale border-border bg-card"
+      : stat === "occurred"
+        ? isOut
+          ? "border-red-500/50 bg-red-500/10 ring-2 ring-red-500/30"
+          : "border-emerald-500/50 bg-emerald-500/10 ring-2 ring-emerald-500/30"
+        : stat === "next"
+          ? "border-emerald-500/40 bg-emerald-500/[0.06] ring-1 ring-emerald-500/30"
+          : isOut
+            ? "border-red-500/25 bg-red-500/[0.03]"
+            : "border-border bg-card";
+  return (
+    <div className={`${base} ${cls}`}>
+      <div
+        className={`text-[10.5px] font-bold uppercase tracking-wide ${
+          isOut ? "text-red-500" : "text-emerald-600"
+        }`}
+      >
+        {c.when}
+      </div>
+      <div className="mt-0.5 text-[14px] font-bold tracking-tight">
+        {c.title}
+      </div>
+      <div className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground">
+        {c.desc}
+      </div>
+      {stat === "occurred" && (
+        <div className="mt-2 text-[10.5px] font-semibold">
+          {isOut ? "현재 시나리오" : "확정"}
+        </div>
+      )}
+      {stat === "next" && (
+        <div className="mt-2 text-[10.5px] font-semibold text-emerald-600">
+          가장 빠른 길
+        </div>
+      )}
+      {stat === "pruned" && (
+        <div className="mt-2 text-[10.5px] font-semibold text-muted-foreground">
+          불가능
+        </div>
+      )}
     </div>
   );
 }
