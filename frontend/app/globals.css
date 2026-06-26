@@ -147,34 +147,46 @@
   }
 }
 
-/* ── 축구 배경 애니메이션 (자체 제작, 저작권 없음) ───────────────────── */
-.pitch-base {
-  background:
-    radial-gradient(120% 85% at 50% -15%, rgba(255, 255, 255, 0.12), transparent 60%),
-    linear-gradient(180deg, #0c4023 0%, #0a2f19 60%, #07210f 100%);
+/* ── 실사 배경 영상 + 시네마틱 다크 ─────────────────────────────────── */
+/* 영상 배경 위에서는 항상 다크 팔레트로 고정 (텍스트 대비 확보) */
+:root {
+  color-scheme: dark;
+  --background: oklch(0.16 0 0);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.2 0 0);
+  --card-foreground: oklch(0.96 0 0);
+  --popover: oklch(0.2 0 0);
+  --popover-foreground: oklch(0.96 0 0);
+  --primary: oklch(0.92 0 0);
+  --primary-foreground: oklch(0.2 0 0);
+  --secondary: oklch(0.26 0 0);
+  --secondary-foreground: oklch(0.96 0 0);
+  --muted: oklch(0.26 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.26 0 0);
+  --accent-foreground: oklch(0.96 0 0);
+  --destructive: oklch(0.7 0.19 22);
+  --destructive-foreground: oklch(0.18 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.55 0 0);
 }
-.pitch-stripes {
-  background-image: repeating-linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.05) 0 64px,
-    rgba(0, 0, 0, 0.06) 64px 128px
-  );
-  animation: pitchScroll 15s linear infinite;
+
+.stadium-video {
+  animation: stadiumZoom 22s ease-out both;
 }
-.pitch-ball {
-  animation-name: ballRoll;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-  will-change: transform;
+@keyframes stadiumZoom {
+  from { transform: scale(1.14); }
+  to { transform: scale(1); }
 }
-@keyframes pitchScroll {
-  from { background-position: 0 0; }
-  to { background-position: 0 128px; }
+.stadium-intro {
+  animation: introFade 1.8s ease-out 0.2s forwards;
 }
-@keyframes ballRoll {
-  0% { transform: translateX(-12vw) rotate(0deg); }
-  100% { transform: translateX(112vw) rotate(1080deg); }
+@keyframes introFade {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .pitch-stripes, .pitch-ball { animation: none; }
+  .stadium-video { animation: none; }
+  .stadium-intro { animation: introFade 0.6s ease-out forwards; }
 }
