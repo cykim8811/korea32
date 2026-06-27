@@ -18,9 +18,9 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata = {
-  title: "한국 32강 경우의 수",
+  title: "한국 32강 진출 확정",
   description:
-    "2026 월드컵 한국 32강 진출 시나리오 — 조 3위 상위 8팀 경쟁을 실시간으로 계산하는 관제 도구.",
+    "2026 월드컵 한국 32강 진출 확정 — 조 3위 12팀 중 8위로 마지막 와일드카드 획득.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

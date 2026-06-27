@@ -30,13 +30,14 @@ const FIXED: Third[] = [
   { group: "C", team: "스코틀랜드", pts: 3, gd: -3, gf: 1, fixed: true },
 ];
 
+// 조별리그 종료 후 확정된 G~L조 3위 (2026-06-28).
 const PENDING_DEFAULT: Third[] = [
-  { group: "G", team: "벨기에/이란", pts: 2, gd: 0, gf: 2, fixed: false, hint: "이집트 4 / 이란·벨기에 2 / 뉴질랜드 1" },
-  { group: "H", team: "우루과이/카보베르데", pts: 2, gd: -1, gf: 2, fixed: false, hint: "스페인 4 / 우루과이·카보베르데 2 / 사우디 1" },
-  { group: "I", team: "세네갈/이라크", pts: 3, gd: -2, gf: 2, fixed: false, hint: "프랑스·노르웨이 6 / 세네갈·이라크 0" },
-  { group: "J", team: "알제리/오스트리아", pts: 3, gd: -2, gf: 2, fixed: false, hint: "아르헨티나 6 / 오스트리아·알제리 3 / 요르단 0" },
-  { group: "K", team: "콩고DR/우즈벡", pts: 2, gd: -1, gf: 1, fixed: false, hint: "콜롬비아 6 / 포르투갈 4 / 콩고DR·우즈벡 1" },
-  { group: "L", team: "크로아티아", pts: 3, gd: -1, gf: 3, fixed: false, hint: "잉글랜드·가나 4 / 크로아티아 3 / 파나마 0" },
+  { group: "G", team: "이란", pts: 3, gd: 0, gf: 3, fixed: true, hint: "G조 3위 · 한국 위" },
+  { group: "H", team: "우루과이", pts: 2, gd: 0, gf: 3, fixed: true, hint: "H조 3위 · 한국 아래" },
+  { group: "I", team: "세네갈", pts: 3, gd: 1, gf: 4, fixed: true, hint: "I조 3위 · 한국 위" },
+  { group: "J", team: "알제리", pts: 3, gd: -2, gf: 2, fixed: true, hint: "J조 3위 · 한국 아래" },
+  { group: "K", team: "콩고DR", pts: 1, gd: -1, gf: 1, fixed: true, hint: "K조 3위 · 한국 아래" },
+  { group: "L", team: "크로아티아", pts: 3, gd: -1, gf: 3, fixed: true, hint: "L조 3위 · 한국 위(다득점)" },
 ];
 
 const ADVANCE_SLOTS = 8;
@@ -119,14 +120,20 @@ export default function Page() {
         <div className="flex items-center gap-2 text-[13px] font-medium text-white/55">
           <span>🇰🇷 2026 월드컵</span>
           <span className="text-white/25">·</span>
-          <span>32강 경우의 수 관제</span>
+          <span>조별리그 종료 · 결과 확정</span>
         </div>
         <h1
           className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl"
           style={{ textShadow: "0 2px 18px rgba(0,0,0,0.6)" }}
         >
-          한국, 32강 갈 수 있나
+          한국, 32강 진출 확정 🎉
         </h1>
+        <p
+          className="mt-1.5 text-[14px] font-medium text-emerald-300"
+          style={{ textShadow: "0 1px 12px rgba(0,0,0,0.6)" }}
+        >
+          조 3위 12팀 중 8위 — 마지막 와일드카드로 토너먼트행
+        </p>
       </header>
 
       {/* 판정 배너 */}
@@ -156,7 +163,7 @@ export default function Page() {
       {/* 미확정 6개 조 조정 */}
       <section className="mb-7">
         <div className="mb-2 text-[13px] font-semibold">
-          남은 변수 · G~L조 3위 (최종전 미정)
+          G~L조 3위 확정값 (직접 바꿔 복기 가능)
         </div>
         <div className="grid gap-2.5 sm:grid-cols-2">
           {pending.map((t) => (
@@ -193,9 +200,9 @@ export default function Page() {
       {/* 출처 / 푸터 */}
       <footer className="mt-12 border-t border-white/10 pt-5 text-[12px] leading-relaxed text-white/50">
         <p>
-          기준 스냅샷 <b className="text-white/75">2026-06-27</b>. 미확정 조의
-          3위 예상치는 추정값이며 실제 결과로 바꿔 보면 된다. 세부
-          타이브레이커(공정성 점수 등)는 단순화. 배경 영상 ⓒ Pexels(무료).
+          조별리그 종료 <b className="text-white/75">2026-06-28</b> 기준. 한국은
+          조 3위 8위로 32강 진출 확정. 일부 득실·다득점 수치는 보도 기준 근사.
+          배경 영상 ⓒ Pexels(무료).
         </p>
         <p className="mt-2">
           참고:{" "}
@@ -257,7 +264,7 @@ function Verdict({
               advancing ? "text-emerald-300" : "text-red-300"
             }`}
           >
-            {advancing ? "현재 예측 · 32강 진출권" : "현재 예측 · 탈락권"}
+            {advancing ? "확정 · 32강 진출" : "확정 · 탈락"}
           </div>
           <div className="mt-1 text-2xl font-bold tracking-tight">
             조 3위 <span className="tabular-nums">{rank}</span>위
@@ -284,8 +291,8 @@ function Verdict({
             ) : (
               <>딱 마지막 진출 자리. </>
             )}
-            잔여 6개 조에서 한국보다 나은 3위가 <b>{maxPendingAhead}팀</b>까지면
-            통과 — 지금은 <b>{pendingAhead}팀</b>.
+            G~L조에서 한국보다 나은 3위가 <b>{maxPendingAhead}팀</b>까지면 통과 —
+            실제 <b>{pendingAhead}팀</b>(세네갈·이란·크로아티아)으로 딱 통과.
           </>
         ) : (
           <>
@@ -302,7 +309,15 @@ function Verdict({
 // 카드 = 유리 조건 3개의 묶음(이거 다 되면 무조건 진출). 조건을 누르면
 // 결과 표시: 한 번 = 달성(✓), 두 번 = 실패(✗). 실패가 끼면 카드는 흐려진다.
 function ScenarioBoard() {
-  const [res, setRes] = useState<Record<string, "ok" | "fail">>({});
+  // 조별리그 종료 — 실제 결과 반영(세네갈·이란·크로아티아 유리 실패, 나머지 달성).
+  const [res, setRes] = useState<Record<string, "ok" | "fail">>({
+    I: "fail",
+    G: "fail",
+    L: "fail",
+    H: "ok",
+    K: "ok",
+    J: "ok",
+  });
   const cycle = (k: string) =>
     setRes((p) => {
       const cur = p[k];
@@ -326,9 +341,9 @@ function ScenarioBoard() {
   return (
     <section className="mt-6">
       <div className="mb-2 flex items-baseline justify-between gap-2">
-        <span className="text-[13px] font-semibold">진출 시나리오</span>
+        <span className="text-[13px] font-semibold">진출 시나리오 · 결과 반영</span>
         <span className="text-[11.5px] text-white/50">
-          조건을 눌러 결과 표시 · 1번 달성 ✓ / 2번 실패 ✗
+          실제 결과 반영됨 · 눌러서 복기 가능
         </span>
       </div>
 
@@ -598,20 +613,19 @@ function Guide({
   const ahead = pending.filter(beats);
   return (
     <section className="glass mt-7 rounded-xl p-4">
-      <div className="text-[13px] font-semibold">응원 가이드</div>
+      <div className="text-[13px] font-semibold">최종 정리</div>
       <p className="mt-1.5 text-[13px] leading-relaxed text-white/70">
-        한국이 사는 길은 잔여 G~L조에서{" "}
-        <b className="text-white">3위가 약하게</b> 나오는 것 — 승점이 적거나
-        득실이 나쁜 3위.{" "}
         {ahead.length === 0 ? (
-          <>지금 설정에선 한국을 추월하는 조가 <b>없다</b>. 더할 나위 없음.</>
+          <>한국을 추월한 조가 <b>없이</b> 진출.</>
         ) : (
           <>
-            지금은{" "}
+            G~L조에서{" "}
             <b className="text-red-300">
               {ahead.map((t) => `${t.group}조(${t.team})`).join(", ")}
             </b>
-            가 한국을 추월 중. {max}팀까지는 버틴다.
+            가 한국을 넘었지만 딱 {max}팀 — 한국은 마지막 {ADVANCE_SLOTS}번째
+            자리로 32강에 안착했다. 크로아티아엔 득실은 같고 다득점(3 vs 2)에서만
+            밀렸을 뿐, 8위 컷은 한국 차지.
           </>
         )}
       </p>
